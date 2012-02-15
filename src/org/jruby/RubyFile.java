@@ -35,9 +35,8 @@
  ***** END LICENSE BLOCK *****/
 package org.jruby;
 
-import jnr.constants.platform.OpenFlags;
+import com.kenai.constantine.platform.OpenFlags;
 import org.jcodings.Encoding;
-import org.jruby.util.io.ModeFlags;
 import org.jruby.util.io.OpenFile;
 import org.jruby.util.io.ChannelDescriptor;
 import java.io.File;
@@ -60,8 +59,8 @@ import org.jcodings.specific.ASCIIEncoding;
 import org.jruby.anno.JRubyClass;
 import org.jruby.anno.JRubyMethod;
 import org.jruby.anno.JRubyModule;
-import jnr.posix.FileStat;
-import jnr.posix.util.Platform;
+import org.jruby.ext.posix.FileStat;
+import org.jruby.ext.posix.util.Platform;
 import org.jruby.runtime.Block;
 import org.jruby.runtime.ClassIndex;
 import org.jruby.runtime.ObjectAllocator;
@@ -74,9 +73,10 @@ import org.jruby.util.io.DirectoryAsFileException;
 import org.jruby.util.io.PermissionDeniedException;
 import org.jruby.util.io.Stream;
 import org.jruby.util.io.ChannelStream;
-import org.jruby.util.io.IOOptions;
+import org.jruby.util.io.ModeFlags;
 import org.jruby.util.JRubyFile;
 import org.jruby.util.TypeConverter;
+import org.jruby.util.GetUnixPath;
 import org.jruby.util.io.BadDescriptorException;
 import org.jruby.util.io.FileExistsException;
 import org.jruby.util.io.InvalidValueException;
@@ -122,15 +122,16 @@ public class RubyFile extends RubyIO implements EncodingCapable {
 
     private static boolean startsWithDriveLetterOnWindows(String path) {
         return (path != null)
-            && Platform.IS_WINDOWS && 
-            ((path.length()>1 && path.charAt(0) == '/') ? 
+            && Platform.IS_WINDOWS &&
+            ((path.length()>1 && path.charAt(0) == '/') ?
              (path.length() > 2
               && isWindowsDriveLetter(path.charAt(1))
-              && path.charAt(2) == ':') : 
+              && path.charAt(2) == ':') :
              (path.length() > 1
               && isWindowsDriveLetter(path.charAt(0))
               && path.charAt(1) == ':'));
     }
+
     // adjusts paths started with '/' or '\\', on windows.
     static String adjustRootPathOnWindows(Ruby runtime, String path, String dir) {
         if (path == null || !Platform.IS_WINDOWS) return path;
@@ -250,11 +251,11 @@ public class RubyFile extends RubyIO implements EncodingCapable {
         // File::Constants below? File::Constants is included in IO.
 
         // TODO: These were missing, so we're not handling them elsewhere?
-        fileClass.setConstant("FNM_NOESCAPE", runtime.newFixnum(FNM_NOESCAPE));
-        fileClass.setConstant("FNM_CASEFOLD", runtime.newFixnum(FNM_CASEFOLD));
-        fileClass.setConstant("FNM_SYSCASE", runtime.newFixnum(FNM_SYSCASE));
-        fileClass.setConstant("FNM_DOTMATCH", runtime.newFixnum(FNM_DOTMATCH));
-        fileClass.setConstant("FNM_PATHNAME", runtime.newFixnum(FNM_PATHNAME));
+        fileClass.fastSetConstant("FNM_NOESCAPE", runtime.newFixnum(FNM_NOESCAPE));
+        fileClass.fastSetConstant("FNM_CASEFOLD", runtime.newFixnum(FNM_CASEFOLD));
+        fileClass.fastSetConstant("FNM_SYSCASE", runtime.newFixnum(FNM_SYSCASE));
+        fileClass.fastSetConstant("FNM_DOTMATCH", runtime.newFixnum(FNM_DOTMATCH));
+        fileClass.fastSetConstant("FNM_PATHNAME", runtime.newFixnum(FNM_PATHNAME));
         
         // Create constants for open flags
         for (OpenFlags f : OpenFlags.values()) {
@@ -266,29 +267,29 @@ public class RubyFile extends RubyIO implements EncodingCapable {
                 // an invalid value if it is not defined by the platform.
                 final RubyFixnum cvalue = f == OpenFlags.O_ACCMODE
                         ? runtime.newFixnum(ModeFlags.ACCMODE)
-                        : runtime.newFixnum(f.intValue());
-                fileClass.setConstant(cname, cvalue);
-                constants.setConstant(cname, cvalue);
+                        : runtime.newFixnum(f.value());
+                fileClass.fastSetConstant(cname, cvalue);
+                constants.fastSetConstant(cname, cvalue);
             }
         }
         
         // Create constants for flock
-        fileClass.setConstant("LOCK_SH", runtime.newFixnum(RubyFile.LOCK_SH));
-        fileClass.setConstant("LOCK_EX", runtime.newFixnum(RubyFile.LOCK_EX));
-        fileClass.setConstant("LOCK_NB", runtime.newFixnum(RubyFile.LOCK_NB));
-        fileClass.setConstant("LOCK_UN", runtime.newFixnum(RubyFile.LOCK_UN));
+        fileClass.fastSetConstant("LOCK_SH", runtime.newFixnum(RubyFile.LOCK_SH));
+        fileClass.fastSetConstant("LOCK_EX", runtime.newFixnum(RubyFile.LOCK_EX));
+        fileClass.fastSetConstant("LOCK_NB", runtime.newFixnum(RubyFile.LOCK_NB));
+        fileClass.fastSetConstant("LOCK_UN", runtime.newFixnum(RubyFile.LOCK_UN));
         
-        constants.setConstant("FNM_NOESCAPE", runtime.newFixnum(FNM_NOESCAPE));
-        constants.setConstant("FNM_CASEFOLD", runtime.newFixnum(FNM_CASEFOLD));
-        constants.setConstant("FNM_SYSCASE", runtime.newFixnum(FNM_SYSCASE));
-        constants.setConstant("FNM_DOTMATCH", runtime.newFixnum(FNM_DOTMATCH));
-        constants.setConstant("FNM_PATHNAME", runtime.newFixnum(FNM_PATHNAME));
+        constants.fastSetConstant("FNM_NOESCAPE", runtime.newFixnum(FNM_NOESCAPE));
+        constants.fastSetConstant("FNM_CASEFOLD", runtime.newFixnum(FNM_CASEFOLD));
+        constants.fastSetConstant("FNM_SYSCASE", runtime.newFixnum(FNM_SYSCASE));
+        constants.fastSetConstant("FNM_DOTMATCH", runtime.newFixnum(FNM_DOTMATCH));
+        constants.fastSetConstant("FNM_PATHNAME", runtime.newFixnum(FNM_PATHNAME));
         
         // Create constants for flock
-        constants.setConstant("LOCK_SH", runtime.newFixnum(RubyFile.LOCK_SH));
-        constants.setConstant("LOCK_EX", runtime.newFixnum(RubyFile.LOCK_EX));
-        constants.setConstant("LOCK_NB", runtime.newFixnum(RubyFile.LOCK_NB));
-        constants.setConstant("LOCK_UN", runtime.newFixnum(RubyFile.LOCK_UN));
+        constants.fastSetConstant("LOCK_SH", runtime.newFixnum(RubyFile.LOCK_SH));
+        constants.fastSetConstant("LOCK_EX", runtime.newFixnum(RubyFile.LOCK_EX));
+        constants.fastSetConstant("LOCK_NB", runtime.newFixnum(RubyFile.LOCK_NB));
+        constants.fastSetConstant("LOCK_UN", runtime.newFixnum(RubyFile.LOCK_UN));
         
         // File::Constants module is included in IO.
         runtime.getIO().includeModule(constants);
@@ -471,41 +472,46 @@ public class RubyFile extends RubyIO implements EncodingCapable {
         RubyString filename = get_path(context, args[0]);
         runtime.checkSafeString(filename);
 
-        path = adjustRootPathOnWindows(runtime, filename.getUnicodeValue(), runtime.getCurrentDirectory());
-
+        path = adjustRootPathOnWindows(runtime, 
+                         GetUnixPath.getUnixPath(filename.getUnicodeValue()),
+                         runtime.getCurrentDirectory());
         String modeString = "r";
-        IOOptions modes = newIOOptions(runtime, modeString);
+        ModeFlags modes = new ModeFlags();
         RubyHash options = null;
         int perm = 0;
 
-        if (args.length > 1) {
-            if (args[1] instanceof RubyHash) {
-                options = (RubyHash)args[1];
-            } else {
-                modes = parseIOOptions19(args[1]);
-
-                if (args[1] instanceof RubyFixnum) {
-                    perm = getFilePermissions(args);
+        try {
+            if (args.length > 1) {
+                if (args[1] instanceof RubyHash) {
+                    options = (RubyHash)args[1];
                 } else {
-                    modeString = args[1].convertToString().toString();
+                    modes = parseModes19(context, args[1]);
+                    
+                    if (args[1] instanceof RubyFixnum) {
+                        perm = getFilePermissions(args);
+                    } else {
+                        modeString = args[1].convertToString().toString();
+                    }
+                }
+            } else {
+                modes = parseModes19(context, RubyString.newString(runtime, modeString));
+            }
+
+            if (args.length > 2 && !args[2].isNil()) {
+                if (args[2] instanceof RubyHash) {
+                    options = (RubyHash)args[2];
+                } else {
+                    perm = getFilePermissions(args);
                 }
             }
-        } else {
-            modes = parseIOOptions19(RubyString.newString(runtime, modeString));
-        }
 
-        if (args.length > 2 && !args[2].isNil()) {
-            if (args[2] instanceof RubyHash) {
-                options = (RubyHash)args[2];
+            if (perm > 0) {
+                sysopenInternal19(context, path, options, modes, perm);
             } else {
-                perm = getFilePermissions(args);
+                openInternal19(context, path, options, modeString, modes);
             }
-        }
-
-        if (perm > 0) {
-            sysopenInternal19(context, path, options, modes, perm);
-        } else {
-            openInternal19(context, path, options, modeString, modes);
+        } catch (InvalidValueException ex) {
+            throw runtime.newErrnoEINVALError();
         }
 
         return this;
@@ -516,25 +522,31 @@ public class RubyFile extends RubyIO implements EncodingCapable {
         RubyString filename = get_path(runtime.getCurrentContext(), args[0]);
         runtime.checkSafeString(filename);
         
-        path = adjustRootPathOnWindows(runtime, filename.getUnicodeValue(), runtime.getCurrentDirectory());
-        
+        path = adjustRootPathOnWindows(runtime,
+                          GetUnixPath.getUnixPath(filename.getUnicodeValue()),
+                          runtime.getCurrentDirectory());
+
         String modeString;
-        IOOptions modes;
+        ModeFlags modes;
         int perm;
         
-        if ((args.length > 1 && args[1] instanceof RubyFixnum) || (args.length > 2 && !args[2].isNil())) {
-            modes = parseIOOptions(args[1]);
-            perm = getFilePermissions(args);
+        try {
+            if ((args.length > 1 && args[1] instanceof RubyFixnum) || (args.length > 2 && !args[2].isNil())) {
+                modes = parseModes(args[1]);
+                perm = getFilePermissions(args);
 
-            sysopenInternal(path, modes.getModeFlags(), perm);
-        } else {
-            modeString = "r";
-            if (args.length > 1 && !args[1].isNil()) {
-                modeString = args[1].convertToString().toString();
+                sysopenInternal(path, modes, perm);
+            } else {
+                modeString = "r";
+                if (args.length > 1 && !args[1].isNil()) {
+                    modeString = args[1].convertToString().toString();
+                }
+                
+                openInternal(path, modeString);
             }
-
-            openInternal(path, modeString);
-        }
+        } catch (InvalidValueException ex) {
+            throw getRuntime().newErrnoEINVALError();
+        } finally {}
         
         return this;
     }
@@ -543,15 +555,14 @@ public class RubyFile extends RubyIO implements EncodingCapable {
         return (args.length > 2 && !args[2].isNil()) ? RubyNumeric.num2int(args[2]) : 438;
     }
 
-    protected void sysopenInternal19(ThreadContext context, String path, RubyHash options, IOOptions ioOptions, int perm) {
-        ioOptions = updateIOOptionsFromOptions(context, options, ioOptions);
+    protected void sysopenInternal19(ThreadContext context, String path, RubyHash options, ModeFlags modes, int perm) throws InvalidValueException {
+        setEncodingsFromOptions(context, options);
+        modes = updateModesFromOptions(context, options, modes);
 
-        sysopenInternal(path, ioOptions.getModeFlags(), perm);
-
-        setEncodingFromOptions(ioOptions.getEncodingOption());
+        sysopenInternal(path, modes, perm);
     }
 
-    protected void sysopenInternal(String path, ModeFlags modes, int perm) {
+    protected void sysopenInternal(String path, ModeFlags modes, int perm) throws InvalidValueException {
         openFile = new OpenFile();
 
         openFile.setPath(path);
@@ -565,15 +576,14 @@ public class RubyFile extends RubyIO implements EncodingCapable {
         openFile.setMainStream(fdopen(descriptor, modes));
     }
 
-    protected void openInternal19(ThreadContext context, String path, RubyHash options, String modeString, IOOptions ioOptions) {
-        ioOptions = updateIOOptionsFromOptions(context, options, ioOptions);
+    protected void openInternal19(ThreadContext context, String path, RubyHash options, String modeString, ModeFlags modes) throws InvalidValueException {
+        setEncodingsFromOptions(context, options);
+        modes = updateModesFromOptions(context, options, modes);
 
-        openInternal(path, modeString, ioOptions.getModeFlags());
-
-        setEncodingFromOptions(ioOptions.getEncodingOption());
+        openInternal(path, modeString, modes);
     }
 
-    protected void openInternal(String path, String modeString, ModeFlags modes) {
+    protected void openInternal(String path, String modeString, ModeFlags modes) throws InvalidValueException {
         openFile = new OpenFile();
 
         openFile.setMode(modes.getOpenFileFlags());
@@ -582,17 +592,17 @@ public class RubyFile extends RubyIO implements EncodingCapable {
         openFile.setMainStream(fopen(path, modeString));
     }
     
-    protected void openInternal(String path, String modeString) {
+    protected void openInternal(String path, String modeString) throws InvalidValueException {
         openFile = new OpenFile();
 
-        IOOptions modes = newIOOptions(getRuntime(), modeString);
-        openFile.setMode(modes.getModeFlags().getOpenFileFlags());
-        if (modes.getModeFlags().isBinary()) externalEncoding = ASCIIEncoding.INSTANCE;
+        ModeFlags modes = getIOModes(getRuntime(), modeString);
+        openFile.setMode(modes.getOpenFileFlags());
+        if (modes.isBinary()) externalEncoding = ASCIIEncoding.INSTANCE;
         openFile.setPath(path);
         openFile.setMainStream(fopen(path, modeString));
     }
     
-    private ChannelDescriptor sysopen(String path, ModeFlags modes, int perm) {
+    private ChannelDescriptor sysopen(String path, ModeFlags modes, int perm) throws InvalidValueException {
         try {
             ChannelDescriptor descriptor = ChannelDescriptor.open(
                     getRuntime().getCurrentDirectory(),
@@ -630,7 +640,7 @@ public class RubyFile extends RubyIO implements EncodingCapable {
             Stream stream = ChannelStream.fopen(
                     getRuntime(),
                     path,
-                    newModeFlags(getRuntime(), modeString));
+                    getIOModes(getRuntime(), modeString));
             
             if (stream == null) {
                 // TODO
@@ -860,6 +870,17 @@ public class RubyFile extends RubyIO implements EncodingCapable {
         }
     }
 
+    // TODO: This is also defined in the MetaClass too...Consolidate somewhere.
+    private static ModeFlags getModes(Ruby runtime, IRubyObject object) throws InvalidValueException {
+        if (object instanceof RubyString) {
+            return getIOModes(runtime, ((RubyString) object).toString());
+        } else if (object instanceof RubyFixnum) {
+            return new ModeFlags(((RubyFixnum) object).getLongValue());
+        }
+
+        throw runtime.newTypeError("Invalid type for modes");
+    }
+
     @JRubyMethod
     @Override
     public IRubyObject inspect() {
@@ -998,9 +1019,9 @@ public class RubyFile extends RubyIO implements EncodingCapable {
     @JRubyMethod(required = 1, meta = true)
     public static IRubyObject dirname(ThreadContext context, IRubyObject recv, IRubyObject arg) {
         RubyString filename = get_path(context, arg);
-        
-        String jfilename = filename.getUnicodeValue();
-        
+
+        String jfilename  = GetUnixPath.getUnixPath(filename.getUnicodeValue());
+
         String name = jfilename.replace('\\', '/');
         int minPathLength = 1;
         boolean trimmedSlashes = false;
@@ -1168,7 +1189,7 @@ public class RubyFile extends RubyIO implements EncodingCapable {
         // If there's a second argument, it's the path to which the first
         // argument is relative.
         if (args.length == 2 && !args[1].isNil()) {
-            cwd = get_path(context, args[1]).getUnicodeValue();
+            cwd = GetUnixPath.getUnixPath(get_path(context, args[1]).getUnicodeValue());
 
             // Handle ~user paths.
             if (expandUser) {
@@ -1184,7 +1205,7 @@ public class RubyFile extends RubyIO implements EncodingCapable {
             cwd = adjustRootPathOnWindows(runtime, cwd, null);
 
             boolean startsWithSlashNotOnWindows = (cwd != null)
-                    && !Platform.IS_WINDOWS && cwd.length() > 0
+                    && !Platform.IS_WINDOWS && cwd.length() > 0 
                     && cwd.charAt(0) == '/';
 
             // TODO: better detection when path is absolute or not.
@@ -1249,7 +1270,7 @@ public class RubyFile extends RubyIO implements EncodingCapable {
             relativePath = adjustRootPathOnWindows(runtime, relativePath, cwd);
             path = JRubyFile.create(cwd, relativePath);
         }
-
+        
         return runtime.newString(padSlashes + canonicalize(path.getAbsolutePath()));
     }
 
@@ -1286,6 +1307,7 @@ public class RubyFile extends RubyIO implements EncodingCapable {
      * @return Expanded path
      */
     public static String expandUserPath(ThreadContext context, String path) {
+        
         int pathLength = path.length();
 
         if (pathLength >= 1 && path.charAt(0) == '~') {
@@ -1295,7 +1317,6 @@ public class RubyFile extends RubyIO implements EncodingCapable {
             if (userEnd == -1) {
                 if (pathLength == 1) {
                     // Single '~' as whole path to expand
-                    checkHome(context);
                     path = RubyDir.getHomeDirectoryPath(context).toString();
                 } else {
                     // No directory delimeter.  Rest of string is username
@@ -1305,7 +1326,6 @@ public class RubyFile extends RubyIO implements EncodingCapable {
             
             if (userEnd == 1) {
                 // '~/...' as path to expand
-                checkHome(context);
                 path = RubyDir.getHomeDirectoryPath(context).toString() +
                         path.substring(1);
             } else if (userEnd > 1){
@@ -1578,7 +1598,7 @@ public class RubyFile extends RubyIO implements EncodingCapable {
         return runtime.newFixnum(count);
     }
 
-    @JRubyMethod(required = 2, meta = true)
+    @JRubyMethod(required = 2, meta = true, backtrace = true)
     public static IRubyObject link(ThreadContext context, IRubyObject recv, IRubyObject from, IRubyObject to) {
         Ruby runtime = context.getRuntime();
         RubyString fromStr = RubyString.stringValue(from);
@@ -1640,7 +1660,7 @@ public class RubyFile extends RubyIO implements EncodingCapable {
     @JRubyMethod(required = 1, meta = true)
     public static RubyArray split(ThreadContext context, IRubyObject recv, IRubyObject arg) {
         RubyString filename = get_path(context, arg);
-        
+
         return context.getRuntime().newArray(dirname(context, recv, filename),
                 basename(context, recv, new IRubyObject[] { filename }));
     }
@@ -1808,7 +1828,7 @@ public class RubyFile extends RubyIO implements EncodingCapable {
         return runtime.newFixnum(args.length);
     }
 
-    @JRubyMethod(name = "size", compat = RUBY1_9)
+    @JRubyMethod(name = "size", backtrace = true, compat = RUBY1_9)
     public IRubyObject size(ThreadContext context) {
         Ruby runtime = context.getRuntime();
         if ((openFile.getMode() & OpenFile.WRITABLE) != 0) {
@@ -1838,9 +1858,8 @@ public class RubyFile extends RubyIO implements EncodingCapable {
         return entry;
     }
 
-    public static ZipEntry getDirOrFileEntry(String jar, String path) throws IOException {
+    public static ZipEntry getDirOrFileEntry(ZipFile zf, String path) throws IOException {
         String dirPath = path + "/";
-        ZipFile zf = Ruby.getGlobalRuntime().getCurrentContext().getRuntime().getLoadService().getJarFile(jar);
         ZipEntry entry = zf.getEntry(dirPath); // first try as directory
         if (entry == null) {
             // try canonicalizing the path to eliminate . and .. (JRUBY-4760, JRUBY-4879)
@@ -1857,7 +1876,7 @@ public class RubyFile extends RubyIO implements EncodingCapable {
                     }
                 }
             }
-
+            
             if (entry == null) {
                 // try as file
                 entry = getFileEntry(zf, path);
@@ -1926,18 +1945,5 @@ public class RubyFile extends RubyIO implements EncodingCapable {
 
     private void checkClosed(ThreadContext context) {
         openFile.checkClosed(context.getRuntime());
-    }
-    
-    /**
-     * Check if HOME environment variable is not nil nor empty
-     * @param context 
-     */
-    private static void checkHome(ThreadContext context) {
-        Ruby runtime = context.getRuntime();
-        RubyHash env = runtime.getENV();
-        String home = (String) env.get(runtime.newString("HOME"));
-        if (home == null || home.equals("")) {
-            throw runtime.newArgumentError("couldn't find HOME environment -- expanding `~'");
-        }
     }
 }

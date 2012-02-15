@@ -37,8 +37,9 @@ import java.io.IOException;
 
 import org.jruby.Ruby;
 
-import jnr.posix.JavaSecuredFile;
+import org.jruby.ext.posix.JavaSecuredFile;
 import org.jruby.platform.Platform;
+import org.jruby.util.GetUnixPath;
 
 /**
  * <p>This file acts as an alternative to NormalizedFile, due to the problems with current working 
@@ -49,7 +50,8 @@ public class JRubyFile extends JavaSecuredFile {
     private static final long serialVersionUID = 435364547567567L;
 
     public static JRubyFile create(String cwd, String pathname) {
-        return createNoUnicodeConversion(cwd, pathname);
+        return createNoUnicodeConversion(GetUnixPath.getUnixPath(cwd),
+					 GetUnixPath.getUnixPath(pathname));
     }
 
     public static String normalizeSeps(String path) {

@@ -47,7 +47,7 @@ import java.util.zip.ZipEntry;
 
 import org.jruby.anno.JRubyMethod;
 import org.jruby.anno.JRubyClass;
-import jnr.posix.util.Platform;
+import org.jruby.ext.posix.util.Platform;
 
 import org.jruby.exceptions.RaiseException;
 import org.jruby.javasupport.JavaUtil;
@@ -59,6 +59,7 @@ import org.jruby.runtime.builtin.IRubyObject;
 import org.jruby.util.Dir;
 import org.jruby.util.JRubyFile;
 import org.jruby.util.ByteList;
+import org.jruby.util.GetUnixPath;
 import static org.jruby.CompatVersion.*;
 
 /**
@@ -133,7 +134,9 @@ public class RubyDir extends RubyObject {
 
         getRuntime().checkSafeString(newPath);
 
-        String adjustedPath = RubyFile.adjustRootPathOnWindows(getRuntime(), newPath.toString(), null);
+        String adjustedPath = RubyFile.adjustRootPathOnWindows(getRuntime(),
+                                 GetUnixPath.getUnixPath(newPath.toString()),
+                                 null);
         checkDirIsTwoSlashesOnWindows(getRuntime(), adjustedPath);
 
         dir = JRubyFile.create(getRuntime().getCurrentDirectory(), adjustedPath);
@@ -374,7 +377,8 @@ public class RubyDir extends RubyObject {
     }
 
     private static RubyArray entriesCommon(Ruby runtime, String path) {
-        String adjustedPath = RubyFile.adjustRootPathOnWindows(runtime, path, null);
+        String adjustedPath = RubyFile.adjustRootPathOnWindows(runtime, 
+                                        GetUnixPath.getUnixPath(path), null);
         checkDirIsTwoSlashesOnWindows(runtime, adjustedPath);
 
         Object[] files = getEntries(runtime, adjustedPath).toArray();
@@ -383,7 +387,7 @@ public class RubyDir extends RubyObject {
 
     private static List<String> getEntries(Ruby runtime, String path) {
         if (!RubyFileTest.directory_p(runtime, RubyString.newString(runtime, path)).isTrue()) {
-            throw runtime.newErrnoENOENTError("No such directory: " + path);
+            throw runtime.newErrnoENOENTError("No such directory");
         }
 
         if (path.startsWith("file:")) return entriesIntoAJarFile(runtime, path);
@@ -443,7 +447,9 @@ public class RubyDir extends RubyObject {
         Ruby runtime = context.getRuntime();
         RubyString path = args.length == 1 ?
             RubyFile.get_path(context, args[0]) : getHomeDirectoryPath(context);
-        String adjustedPath = RubyFile.adjustRootPathOnWindows(runtime, path.getUnicodeValue(), null);
+        String adjustedPath = RubyFile.adjustRootPathOnWindows(runtime, 
+                                GetUnixPath.getUnixPath(path.getUnicodeValue()),
+                                null); 
         checkDirIsTwoSlashesOnWindows(runtime, adjustedPath);
         JRubyFile dir = getDir(runtime, adjustedPath, true);
         String realPath = null;
@@ -891,7 +897,7 @@ public class RubyDir extends RubyObject {
 
     public static RubyString getHomeDirectoryPath(ThreadContext context) {
         Ruby runtime = context.getRuntime();
-        IRubyObject systemHash = runtime.getObject().getConstant("ENV_JAVA");
+        RubyHash systemHash = (RubyHash) runtime.getObject().getConstant("ENV_JAVA");
         RubyHash envHash = (RubyHash) runtime.getObject().getConstant("ENV");
         IRubyObject home = null;
 
@@ -904,7 +910,7 @@ public class RubyDir extends RubyObject {
         }
 
         if (home == null || home.isNil()) {
-            home = systemHash.callMethod(context, "[]", runtime.newString("user.home"));
+            home = systemHash.op_aref(context, runtime.newString("user.home"));
         }
 
         if (home == null || home.isNil()) {
